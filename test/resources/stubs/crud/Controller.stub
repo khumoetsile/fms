@@ -1,0 +1,554 @@
+<?php
+
+namespace App\Http\Controllers\{{modelName}};
+
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\File;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\{{modelNamePluralUcFirst}}Export;
+use Illuminate\Http\Request;
+use App\{{modelName}};
+use App\Activity;
+use Auth;
+
+class {{modelName}}Controller extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    function __construct()
+    {
+        $this->middleware('permission:Admin-list|Admin-create|Admin-edit|Admin-delete', ['only' => ['index','show']]);
+        $this->middleware('permission:Admin-create',            ['only' =>   ['create','store']]);
+        $this->middleware('permission:Admin-edit',              ['only' =>   ['edit','update']]);
+        $this->middleware('permission:Admin-upload',            ['only' =>   ['upload_page','upload_process','csvToArray']]);
+        $this->middleware('permission:Admin-download',          ['only' =>   ['download_sample_csv']]);
+        $this->middleware('permission:Admin-export',            ['only' =>   ['export_{{modelNamePluralLowerCase}}']]);
+        $this->middleware('permission:Admin-show-deleted',      ['only' =>   ['show_deleted']]);
+        $this->middleware('permission:Admin-restore',           ['only' =>   ['restore_single','restore_bulk']]);
+        $this->middleware('permission:Admin-delete',            ['only' =>   ['destroy','bulk_delet']]);
+        $this->middleware('permission:Admin-perm-delete',       ['only' =>   ['perm_Delete', 'perm_bulk_delet']]);
+    }
+
+    /**
+     * Display {{modelName}} listing .
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        ${{modelNamePluralLowerCase}} = {{modelName}}::get();
+        $isInserted = Activity::create([
+                'module_name' => '{{modelName}} index',
+                'action_name' => 'Visited {{modelName}} Index',
+                'user_name' => Auth::user()->fname ,
+            ]);
+        return view('{{modelNamePluralLowerCase}}.index_{{modelNamePluralLowerCase}}',compact('{{modelNamePluralLowerCase}}'));
+    }
+	
+	/**
+     * gET {{modelName}}.
+     *
+     * @param  \App\{{modelName}}  {{modelName}}_code
+     * @return \Illuminate\Http\Response
+     */
+    public function check_{{modelNamePluralLowerCase}} (Request $request)
+    {
+       try {
+        $getFields = {{modelName}}::where('{{modelNameSingularLowerCase}}_code',$request->{{modelNameSingularLowerCase}}_code)->first();
+        return response()->json($getFields, 200);
+    } catch (Exception $e) {
+        return json(array("Sorry! Data not Fatched"));
+        return response()->json([
+            //'message' => $e->getMessage();
+        ], 500);
+    }
+    }
+
+    /**
+     * gET {{modelName}}.
+     *
+     * @param  \App\{{modelName}}  {{modelName}}_code
+     * @return \Illuminate\Http\Response
+     */
+    public function get_{{modelNamePluralLowerCase}} (Request $request)
+    {
+       try {
+        $getFields = {{modelName}}::where('{{modelNameSingularLowerCase}}_name',$request->{{modelNameSingularLowerCase}}_name)->where('{{modelNameSingularLowerCase}}_status','1')->first();
+        return response()->json($getFields, 200);
+    } catch (Exception $e) {
+        return json(array("Sorry! Data not Fatched"));
+        return response()->json([
+            //'message' => $e->getMessage();
+        ], 500);
+    }
+    }
+	
+    /**
+     * Show Create New {{modelName}} Page.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        /*$VeriablePluralName = Location{{modelNamePluralLowerCase}}::get();*/ //to create Stream Un comment this
+        $isInserted = Activity::create([
+                'module_name' => '{{modelName}} Create',
+                'action_name' => 'Visited Create {{modelName}} Page',
+                'user_name' => Auth::user()->fname ,
+            ]);
+        return view('{{modelNamePluralLowerCase}}.create_{{modelNamePluralLowerCase}}');
+        //,compact('VeriablePluralName')); Add this if uncomment
+    }
+
+    
+    /**
+     * Store a newly created {{modelName}} in database.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        
+        $validate = $this->validate($request,[
+            '{{modelNameSingularLowerCase}}_code' 	=> 'required|string|max:255|unique:{{modelNamePluralLowerCase}}',
+            '{{modelNameSingularLowerCase}}_name' 	=> 'required|string|max:255',
+            '{{modelNameSingularLowerCase}}_status' => 'required',
+        ]);
+        
+        if($validate)
+        {
+            $isInserted = {{modelName}}::create([
+                '{{modelNameSingularLowerCase}}_code' 	=> strtoupper($request->{{modelNameSingularLowerCase}}_code),
+                '{{modelNameSingularLowerCase}}_name' 	=> strtoupper($request->{{modelNameSingularLowerCase}}_name),
+                '{{modelNameSingularLowerCase}}_status' => $request->{{modelNameSingularLowerCase}}_status,
+                'created_by'        => Auth::user()->fname,
+            ]);
+
+            if($isInserted)
+            {
+                 $isInserted = Activity::create([
+                'module_name' => '{{modelName}} Created',
+                'action_name' => 'Created new {{modelName}}',
+                'user_name' => Auth::user()->fname ,
+            ]);
+                return redirect()->route('{{modelNamePluralLowerCase}}.index')->with('gmsg','{{modelName}} created successfully.');
+            }else{
+                return back()->with('bmsg','Something went wrong, please try later...');
+            }
+
+        }else{
+            return back();
+        }
+    }
+
+    /**
+     * Upoad {{modelName}} Page View.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+
+    public function upload_page()
+    {
+        ${{modelNamePluralLowerCase}} = {{modelName}}::latest()->paginate(10);
+        $isInserted = Activity::create([
+                'module_name' => '{{modelName}} Upload',
+                'action_name' => 'Visited {{modelName}} Upload Page',
+                'user_name' => Auth::user()->fname ,
+            ]);
+        return view('{{modelNamePluralLowerCase}}.upload_{{modelNamePluralLowerCase}}',compact('{{modelNamePluralLowerCase}}'))
+                            ->with('i', (request()->input('page', 1) - 1) * 10);
+        //,compact('{{modelName}}class')); Add this if uncommen
+    }
+
+    /**
+     * {{modelName}} CSV Upload Function.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    
+    public function upload_process(Request $request)
+    {
+        try {
+
+           if ($request->file('csv')) 
+            {
+                $validate = $this->validate($request,[
+                    'csv'=>'required|mimes:csv,txt',
+                ]);
+                if($validate)
+            {
+                    $file = $request->file('csv');
+                    $extension = $file->getClientOriginalExtension();
+                    $file_name = 'csv_'.rand().'.'.$extension;
+                    $path = $file->move(public_path().'/csv',$file_name);
+
+
+                    $customerArr = $this->csvToArray($path);
+
+                for ($i = 0; $i < count($customerArr); $i ++)
+                    {
+                    {{modelName}}::firstOrCreate($customerArr[$i]);
+                    }
+
+                if(File::exists($path))
+                    {
+                    File::delete($path);
+                    }
+
+             
+                $isInserted = Activity::create([
+                    'module_name' => '{{modelName}} Uploaded',
+                    'action_name' => 'Uploaded Multiple {{modelNamePluralLowerCase}} with CSV',
+                    'user_name' => Auth::user()->fname,
+                ]);
+
+                return redirect()->route('{{modelNamePluralLowerCase}}.index')->with('gmsg','Data Uploaded Successfully...');
+            }   else{
+                        return back()->with('bmsg','Select a CSV file...');
+                    }
+
+            }   else{
+                        return back()->with('bmsg','Select a  Correct CSV file...');
+                    }
+
+        } catch (\Exception $e) {
+            return redirect()->route('{{modelNamePluralLowerCase}}.upload_page')->with('bmsg',$e->getMessage());
+        }
+
+    }
+
+    /**
+     * Convert Csv File to Array.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+
+    public function csvToArray($filename = '', $delimiter = ',')
+    {
+        if (!file_exists($filename) || !is_readable($filename))
+            return false;
+                $header = null;
+                $data = array();
+                if (($handle = fopen($filename, 'r')) !== false)
+        {
+            while (($row = fgetcsv($handle, 1000, $delimiter)) !== false)
+            {
+                if (!$header)
+                    {
+                    $header = $row;
+                    }
+                else
+                    {
+                    $data[] = array_combine($header, $row);
+                    }
+            }
+            fclose($handle);
+        }
+
+        return $data;
+    }
+
+    
+     /**
+     * Display the specified {{modelName}}.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+    public function show({{modelName}} ${{modelNameSingularLowerCase}})
+    {
+        $isInserted = Activity::create([
+            'module_name' => '{{modelName}} Show',
+            'action_name' => 'Checked {{modelName}} Record',
+            'user_name' => Auth::user()->fname ,
+        ]);
+        return view('{{modelNamePluralLowerCase}}.show_{{modelNamePluralLowerCase}}',compact('{{modelNameSingularLowerCase}}'));
+    }
+
+
+    /**
+     * Show {{modelName}} Edit Page.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+    public function edit({{modelName}} ${{modelNameSingularLowerCase}})
+    {
+        $isInserted = Activity::create([
+            'module_name' => '{{modelName}} Edit',
+            'action_name' => 'Visited {{modelName}} Edit Page',
+            'user_name' => Auth::user()->fname ,
+        ]);
+        return view('{{modelNamePluralLowerCase}}.update_{{modelNamePluralLowerCase}}',compact('{{modelNameSingularLowerCase}}'));
+    }
+
+    /**
+     * Update the specified {{modelName}} in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, {{modelName}} ${{modelNameSingularLowerCase}})
+    {
+        
+        $validate = $this->validate($request,[
+            '{{modelNameSingularLowerCase}}_code'      =>  'required|string|max:255',
+            '{{modelNameSingularLowerCase}}_name'      =>  'required|string|max:255',
+            '{{modelNameSingularLowerCase}}_status'    =>  'required',
+        ]);
+        if($validate)
+        {
+
+            ${{modelNameSingularLowerCase}}->{{modelNameSingularLowerCase}}_code = strtoupper($request->{{modelNameSingularLowerCase}}_code);
+            ${{modelNameSingularLowerCase}}->{{modelNameSingularLowerCase}}_name = strtoupper($request->{{modelNameSingularLowerCase}}_name);
+            ${{modelNameSingularLowerCase}}->{{modelNameSingularLowerCase}}_status = $request->{{modelNameSingularLowerCase}}_status;
+            ${{modelNameSingularLowerCase}}->updated_by    = Auth::user()->fname;
+
+            if(${{modelNameSingularLowerCase}}->save())
+            {
+                ${{modelName}} = Activity::create([
+                'module_name' => '{{modelName}} Updated',
+                'action_name' => 'Edited a {{modelName}}',
+                'user_name' => Auth::user()->fname ,
+            ]);
+
+                return redirect()->route('{{modelNamePluralLowerCase}}.index')->with('gmsg','Data Successfully Updated ...');
+
+            }else{
+                return back()->with('bmsg','Something went wrong, please try later...');
+            }
+
+        }else{
+            return back();
+        }
+    }
+
+    /**
+     * Download Sample countries CSV.
+     *
+     * @param  \App\Country  $country
+     * @return \Illuminate\Http\Response
+     */
+    public function download_sample_csv()
+    {
+        
+        $filename="{{modelNamePluralLowerCase}}_sample.csv";
+        $file_path = public_path() . "\download_samples\\" . $filename;
+        $headers = array(
+            'Content-Type: csv',
+            'Content-Disposition: attachment; filename='.$filename,
+        );
+        if ( file_exists( $file_path ) ) {
+            // Send Download
+            $isInserted = Activity::create([
+                'module_name' => '{{modelName}} Sample',
+                'action_name' => 'Download {{modelName}} Sample',
+                'user_name' => Auth::user()->fname ,
+            ]);
+            return \Response::download( $file_path, $filename, $headers );
+
+        } else {
+            // Error
+            return back()->with('bmsg','Requested file does not exist on our server!');
+        }
+    }
+
+    
+
+    /**
+     *  Export items in {{modelName}} Table.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+    public function export_{{modelNamePluralLowerCase}}()
+    {
+        return Excel::download(new {{modelNamePluralUcFirst}}Export, '{{modelNamePluralUcFirst}}.xlsx');
+    }
+    
+    /**
+     *  Show items in recylebin.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+    public function show_deleted()
+    {
+        ${{modelNamePluralLowerCase}} = {{modelName}}::onlyTrashed()->get();
+        $getFields = {{modelName}}::onlyTrashed()->count();
+
+        if($getFields > 0){
+
+            $getFields = Activity::create([
+                'module_name' => '{{modelName}} Deleted',
+                'action_name' => 'Checked {{modelName}} Trash',
+                'user_name' => Auth::user()->fname ,
+            ]);
+            return view('{{modelNamePluralLowerCase}}.deleted_{{modelNamePluralLowerCase}}',compact('{{modelNamePluralLowerCase}}'));
+        }else{
+            return redirect()->route('{{modelNamePluralLowerCase}}.index')->with('imsg','Deleted Folder is Empaty Now');
+        }
+        
+    }
+
+    /**
+     * Restore Single {{modelNameSingularLowerCase}}.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+
+    public function restore_single($id)
+    {
+        $restored = {{modelName}}::onlyTrashed()->where(['id'=>$id])->restore();
+        if($restored)
+        {
+            $restored = Activity::create([
+            'module_name' => '{{modelName}} Restore',
+            'action_name' => 'Restored Single {{modelName}}',
+            'user_name' => Auth::user()->fname ,
+        ]);
+            return redirect()->route('{{modelNamePluralLowerCase}}.index')->with('gmsg','Records restored successfully...');
+        }else{
+            return back()->with('bmsg','Error restoring records, try again latter...');
+        }
+    }
+
+    /**
+     * Restore bulk Contries.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+
+    public function restore_bulk()
+    {
+        $restored = {{modelName}}::onlyTrashed()->restore();
+        if($restored)
+        {
+            $restored = Activity::create([
+            'module_name' => '{{modelName}} Bulk Restore',
+            'action_name' => 'Restored Multiple {{modelNamePluralLowerCase}}',
+            'user_name' => Auth::user()->fname ,
+        ]);
+            return redirect()->route('{{modelNamePluralLowerCase}}.index')->with('gmsg','Records restored successfully...');
+        }else{
+            return back()->with('bmsg','Error restoring records, try again latter...');
+        }
+    }
+
+    /**
+     * Permanent Delete Single {{modelName}}.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+
+    public function perm_Delete($id)
+    {
+        $isDeleted = {{modelName}}::where('id',$id)->forceDelete();
+        if($isDeleted)
+        {
+            $isDeleted = Activity::create([
+            'module_name' => '{{modelName}} Permanent Delete',
+            'action_name' => 'Permanently Deleted Single {{modelName}}',
+            'user_name' => Auth::user()->fname ,
+        ]);
+            return json_encode(array('message'=>"Data Deleted Successfully..."));
+        }else{
+            return json_encode(array('message'=>"Error Deleting Data..."));
+        }
+    }
+
+    /**
+     * Permanent Delete Bulk {{modelNamePluralLowerCase}}.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+
+    public function perm_bulk_delet(Request $request)
+    {
+
+
+        foreach($request->ids as $key=>$id)
+        {
+            $isDeleted = {{modelName}}::where('id',$id)->forceDelete();
+        }
+
+        if($isDeleted)
+        {
+            $isDeleted = Activity::create([
+            'module_name' => '{{modelName}} Perm. Bulk Delete',
+            'action_name' => 'Permanently Deleted Multiple {{modelNamePluralLowerCase}}',
+            'user_name' => Auth::user()->fname ,
+        ]);
+            return json_encode(array('message'=>"Data Deleted Successfully..."));
+        }else{
+            return json_encode(array('message'=>"Data Deleting Error..."));
+        }
+
+    }
+
+    /**
+     *  Delete Single {{modelName}}.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+
+    public function destroy($id)
+    {
+
+        $isDeleted = {{modelName}}::where('id',$id)->delete();
+        if($isDeleted)
+        {
+            $isDeleted = Activity::create([
+            'module_name' => '{{modelName}}',
+            'action_name' => 'Trashed a {{modelName}}',
+            'user_name' => Auth::user()->fname ,
+        ]);
+            return json_encode(array('message'=>"Data Deleted Successfully..."));
+        }else{
+            return json_encode(array('message'=>"Error Deleting Data..."));
+        }
+    }
+
+     /**
+     *  Delete Bulk {{modelNamePluralLowerCase}}.
+     *
+     * @param  \App\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return \Illuminate\Http\Response
+     */
+
+    public function bulk_delet(Request $request)
+    {
+
+
+        foreach($request->ids as $key=>$id)
+        {
+            $isDeleted = {{modelName}}::where('id',$id)->delete();
+        }
+
+        if($isDeleted)
+        {
+            $isDeleted = Activity::create([
+            'module_name' => '{{modelName}}',
+            'action_name' => 'Trashed Multiple {{modelNamePluralLowerCase}}',
+            'user_name' => Auth::user()->fname ,
+        ]);
+            return json_encode(array('message'=>"Data Deleted Successfully..."));
+        }else{
+            return json_encode(array('message'=>"Data Deleting Error..."));
+        }
+
+    }
+}

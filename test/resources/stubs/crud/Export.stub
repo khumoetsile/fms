@@ -1,0 +1,27 @@
+<?php
+  
+namespace App\Exports;
+  
+use App\{{modelName}};
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+  
+class {{modelNamePluralUcFirst}}Export implements FromCollection, WithHeadings
+{
+
+    /**
+    * @return \Illuminate\Support\Collection
+    */
+    public function collection()
+    {
+        return {{modelName}}::all('{{modelNameSingularLowerCase}}_code','{{modelNameSingularLowerCase}}_name');
+    }
+
+    public function headings(): array
+    {
+        return [
+            '{{modelNameSingularLowerCase}}_code',
+            '{{modelNameSingularLowerCase}}_name',
+        ];
+    }
+}
